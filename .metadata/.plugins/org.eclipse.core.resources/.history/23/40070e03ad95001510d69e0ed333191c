@@ -1,0 +1,197 @@
+package spider;
+
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Random;
+
+import org.htmlparser.Node;
+import org.htmlparser.NodeFilter;
+import org.htmlparser.Parser;
+import org.htmlparser.filters.AndFilter;
+import org.htmlparser.filters.HasAttributeFilter;
+import org.htmlparser.filters.TagNameFilter;
+import org.htmlparser.tags.LinkTag;
+import org.htmlparser.util.NodeList;
+import org.htmlparser.util.ParserException;
+
+public class AnalysisBase {
+	int UrlAna=1,ComAna=2,RevAna=3;
+	protected  String movieId="";
+	private int waittime=10000;
+	protected Parser parser;
+	int holdTime=1000;
+	boolean Bande=false;
+	boolean stop=false,sleep=false;
+	private String[] userAgant={
+			"Mozilla/4.0 (compatible; MSIE 8.0; Windows NT 6.0)",
+			"Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2272.89 Safari/537.36",
+			"Mozilla/5.0 (Windows NT 6.1) Gecko/20100101 Firefox/41.0",
+			"Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)",
+			"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 6.0)",
+			"Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)"
+	};
+	
+	public int random(int low,int high){
+		Random random = new Random();
+		return random.nextInt(high)+low;
+	}
+	public boolean getBanStatu(){
+		return Bande;
+	}
+	public void setBanStatu(boolean var){
+		Bande=var;
+	}
+	public int getNextItem(String nextString,String replaceStr){
+		String temp=nextString.replaceAll(replaceStr,"").replaceAll("start=","");
+		int i;
+		for(i=0;i<temp.length();i++){
+			if('&'==temp.charAt(i)){
+				break;
+			}
+		}
+		try{
+			i=Integer.parseInt(temp.substring(1, i));
+		}catch(Exception e){i=-1;}
+		return i;
+		
+	}
+	public int getTotalItem(Parser parser) {
+		NodeList totalList;
+		try {
+			parser.reset();
+			totalList = parser.extractAllNodesThatMatch(new AndFilter(new TagNameFilter("span"),new HasAttributeFilter("class","total")));
+			Node totalNode=(Node)totalList.elementAt(0);
+			if(totalNode!=null){
+				String totalString=totalNode.toPlainTextString().replaceAll(" ", "").replace("(共","").replace("条)", "");
+				return Integer.parseInt(totalString);
+			}
+			else {return -2;}
+		} catch (ParserException e) {return -1;}
+		
+	}
+	
+	public void setParser(String url,int type){
+		try {
+			HttpURLConnection conn=(HttpURLConnection) new URL(url).openConnection();
+			conn.setRequestMethod("GET");
+			conn.setRequestProperty("User-agent",userAgant[random(0,5)]);
+			conn.setRequestProperty("accept", "*/*");
+			conn.setRequestProperty("connection", "Keep-Alive");
+			conn.setConnectTimeout(waittime);
+			conn.setReadTimeout(waittime);
+			conn.connect();
+			parser= new Parser(conn);
+			
+		} catch (Exception e) {
+			if(e.toString().indexOf("code: 403")>0){
+				Bande=true;
+				while(Bande){
+					try {Thread.sleep(5000);holdTime+=10;} 
+					catch (InterruptedException ed) {}
+				}
+				try{
+				HttpURLConnection conn=(HttpURLConnection) new URL(url).openConnection();
+				conn.setRequestMethod("GET");
+				conn.setRequestProperty("User-agent",userAgant[random(0,5)]);
+				conn.setRequestProperty("accept", "*/*");
+				conn.setRequestProperty("connection", "Keep-Alive");
+				conn.setConnectTimeout(waittime);
+				conn.setReadTimeout(waittime);
+				conn.connect();
+				parser= new Parser(conn);
+				}catch(Exception ef){
+					
+				}
+			}
+			parser=null;
+		}
+		
+	}
+	
+	public Parser getParser(String url,int type){
+		Parser up=null;
+		try {
+			HttpURLConnection conn=(HttpURLConnection) new URL(url).openConnection();
+			conn.setRequestMethod("GET");
+			conn.setRequestProperty("User-agent",userAgant[random(0,5)]);
+			conn.setRequestProperty("accept", "*/*");
+			conn.setRequestProperty("connection", "Keep-Alive");
+			conn.setConnectTimeout(waittime);
+			conn.setReadTimeout(waittime);
+			conn.connect();
+			up= new Parser(conn);
+		} catch (Exception e) {
+			
+			if(e.toString().indexOf("code: 403")>0){
+				Bande=true;
+				if(type==RevAna){
+
+				}
+				else if(type==ComAna){
+
+				}
+				else if(type==UrlAna){
+					
+				}
+				while(Bande){
+					try {Thread.sleep(5000);holdTime+=10;} 
+					catch (InterruptedException ed) {}
+				}
+				try{
+					HttpURLConnection conn=(HttpURLConnection) new URL(url).openConnection();
+					conn.setRequestMethod("GET");
+					conn.setRequestProperty("User-agent",userAgant[random(0,5)]);
+					conn.setRequestProperty("accept", "*/*");
+					conn.setRequestProperty("connection", "Keep-Alive");
+					conn.setConnectTimeout(waittime);
+					conn.setReadTimeout(waittime);
+					conn.connect();
+					return new Parser(conn);
+					}catch(Exception ef){
+						
+					}
+			}
+			
+		}
+		return up;
+	}
+	
+	public void setMovieId(String urlstr){
+		if(urlstr!=""){
+			urlstr=urlstr.replaceAll("http://movie.douban.com/subject/", "");
+			if(urlstr.indexOf("/")<=0){
+				movieId=urlstr;
+			}
+			else movieId=urlstr.substring(0,urlstr.indexOf("/"));
+		}
+	}
+	
+	public String getMovieIdFromPage(){
+		Node lnode;
+		NodeList idList = null;
+		try {
+				NodeFilter regx=new AndFilter(new TagNameFilter("a"),new HasAttributeFilter("class","bn-sharing "));
+				idList=parser.extractAllNodesThatMatch(regx);
+			} catch (ParserException e) {System.out.println("get id error");}	
+		lnode = (Node)idList.elementAt(0);
+		if(lnode!=null){
+			LinkTag moveid=(LinkTag) lnode;
+			String temp=moveid.getAttribute("data-url");
+			temp=temp.replace("http://movie.douban.com/subject/", "");
+			movieId=temp.substring(0,temp.indexOf("/"));
+		}
+		else{System.out.println("电影id为：N/A");}
+		parser.reset();
+		return movieId;
+	}
+	
+	public String getMovieCommentAddress(){
+		return "http://movie.douban.com/subject/"+movieId+"/comments";
+	}
+	public String getMovieReviewAddress(){
+		return "http://movie.douban.com/subject/"+movieId+"/reviews";
+	}
+	public String getAllPhotoAddress(){
+		return "http://movie.douban.com/subject/"+movieId+"/all_photos";
+	}
+}
